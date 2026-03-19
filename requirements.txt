@@ -26,6 +26,7 @@ pexpect==4.9.0
 platformdirs==4.9.4
 pre-commit==4.5.1
 prompt-toolkit==3.0.52
+psycopg2-binary==2.9.11
 ptyprocess==0.7.0
 pure-eval==0.2.3
 pycodestyle==2.14.0
