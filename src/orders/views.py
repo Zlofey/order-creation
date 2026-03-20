@@ -1,6 +1,6 @@
 from rest_framework.generics import CreateAPIView
 
-from apps.orders.models import Order
+from orders.models import Order
 
 
 class OrderCreateView(CreateAPIView):
