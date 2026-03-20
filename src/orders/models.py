@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from core.models import TimestampModel
@@ -53,6 +53,9 @@ class PromoCode(TimestampModel):
     """
 
     code = models.CharField(max_length=32, unique=True, verbose_name="Код")
+    discount_percent = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки"
+    )
     max_uses_count = models.PositiveSmallIntegerField(
         default=1,
         validators=[MinValueValidator(1)],
@@ -68,6 +71,7 @@ class PromoCode(TimestampModel):
         blank=True,
         verbose_name="Категория",
     )
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
 
     class Meta:
         verbose_name = "Промокод"
