@@ -71,6 +71,11 @@ class PromoCode(TimestampModel):
         blank=True,
         verbose_name="Категория",
     )
+    used_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="used_promocodes",
+    )
     is_active = models.BooleanField(default=True, verbose_name="Активен")
 
     class Meta:
