@@ -122,6 +122,10 @@ class OrderGood(TimestampModel):
         validators=[MinValueValidator(Decimal("0.01"))],
         verbose_name="Цена на момент заказа",
     )
+    promo_applied = models.BooleanField(default=False, verbose_name="Промокод применен")
+    discount_percent = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки"
+    )
 
     class Meta:
         verbose_name = "Товар в заказе"
