@@ -1,10 +1,9 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from core.models import TimestampModel
+from core.models import TimestampModel, User
 
 
 class Category(TimestampModel):
@@ -68,13 +67,9 @@ class PromoCode(TimestampModel):
         Category,
         related_name="promo_codes",
         on_delete=models.CASCADE,
-        blank=True,
         verbose_name="Категория",
-    )
-    used_by = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
+        null=True,
         blank=True,
-        related_name="used_promocodes",
     )
     is_active = models.BooleanField(default=True, verbose_name="Активен")
 
@@ -87,7 +82,7 @@ class Order(TimestampModel):
     """Модель заказа."""
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        User,
         on_delete=models.CASCADE,
         related_name="orders",
         verbose_name="Покупатель",

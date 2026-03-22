@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 
 
@@ -22,3 +23,6 @@ class TimestampModel(CreatedAtModel, UpdatedAtModel):
 
     class Meta:
         abstract = True
+
+
+User = get_user_model()

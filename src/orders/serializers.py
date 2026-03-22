@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class GoodSerializer(serializers.Serializer):
     good_id = serializers.IntegerField()
-    quantity = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
 
 
 class OrderSerializer(serializers.Serializer):
