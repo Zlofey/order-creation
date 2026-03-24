@@ -1,14 +1,18 @@
-from typing import Dict, List
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Dict, List
 
 from django.db import transaction
-from django.utils import timezone
+from django.db.models import F
 from rest_framework.exceptions import ValidationError
 
 from core.models import User
 from orders.models import Good, Order, OrderGood, PromoCode
+from orders.services.promo import PromoCodeService
 
 
 class OrderService:
+    MONEY_QUANT = Decimal("0.01")
+
     """
     Сервис для создания заказа.
     - проверяет существование юзера
@@ -20,70 +24,139 @@ class OrderService:
         Объект Order
     """
 
-    @transaction.atomic
-    def create_order(self, user_id: int, goods: List[Dict], promo_code: str | None = None) -> Order:
-        now = timezone.now()
+    @classmethod
+    def _get_goods(cls, goods_data: List[Dict]) -> List[Good]:
+        """
+        Возвращает список объектов товаров.
 
-        # проверяет существование юзера
+        Raises:
+            ValidationError: если какой-то товар не найден
+        """
+        good_ids = [g["good_id"] for g in goods_data]
+        goods = list(Good.objects.select_related("category").filter(id__in=good_ids))
+
+        found_ids = {g.id for g in goods}
+        # получаем id не найденных в бд товаров
+        missing_ids = set(good_ids) - found_ids
+        if missing_ids:
+            raise ValidationError(f"Товары с id {missing_ids} не найдены.")
+        return goods
+
+    @classmethod
+    def _get_user(cls, user_id: int) -> User:
         user = User.objects.filter(pk=user_id).first()
         if user is None:
             raise ValidationError("Пользователь не найден")
+        return user
 
-        promo_code_obj = None
-        if promo_code:
-            promo_code_obj = PromoCode.objects.filter(code=promo_code).first()
-            if promo_code_obj is None:
-                raise ValidationError("Промокод не найден")
-
-            if (
-                promo_code_obj.is_active is False
-                or promo_code_obj.current_uses_count >= promo_code_obj.max_uses_count
-            ):
-                raise ValidationError("Промокод неактивен")
-
-            if promo_code_obj.started_at > now:
-                raise ValidationError("Промокод еще не начался")
-
-            if promo_code_obj.finished_at < now:
-                raise ValidationError("Промокод уже закончился")
-
-            if Order.objects.filter(user=user, promo_code=promo_code_obj).exists():
-                raise ValidationError("Вы уже использовали этот промокод")
-
-        order = Order(user=user, promo_code=promo_code_obj)
-
-        # Проверка товаров и их количества
-        order_goods = []
-        total_amount = 0
-        good_objs = []
-        for good in goods:
-            good_obj: Good = Good.objects.filter(pk=good["good_id"]).first()
-            if good_obj is None:
-                raise ValidationError(f"Неверный ID товара: {good['good_id']}")
-
-            if good_obj.quantity < good["quantity"]:
+    @classmethod
+    def _goods_reserve(cls, goods_data: List[Dict]) -> None:
+        """
+        Проверяет и резервирует нужные количества товаров на складе.
+        Args:
+            goods_data: id товара и количество
+        Raises:
+            ValidationError: если какого-то товара недостаточно
+        """
+        for item in goods_data:
+            updated = Good.objects.filter(
+                pk=item["good_id"], quantity__gte=item["quantity"]
+            ).update(quantity=F("quantity") - item["quantity"])
+            if updated != 1:
+                good = Good.objects.get(pk=item["good_id"])
                 raise ValidationError(
-                    f"Недостаточно количества товара: {good_obj.name} - {good_obj.quantity}."
+                    f"Недостаточное количество товара {good.name}:"
+                    f" в наличии - {good.quantity}, требуется - {item['quantity']}"
                 )
 
-            good_total = good["quantity"] * good_obj.price
-            if good_obj.in_promo and promo_code_obj:
-                total_amount += good_total - good_total * promo_code_obj.discount_percent / 100
-            else:
-                total_amount += good_total
+    @classmethod
+    def create_order_good(
+        cls, good: Good, order: Order, qty: int, promo_code: PromoCode | None = None
+    ) -> OrderGood:
+        """Создает объект продукт-в-заказе."""
+        # расчет процента скидки на товар
+        discount_percent = Decimal("0")
+        if promo_code:
+            discount_percent = PromoCodeService.calculate_discount(
+                good_obj=good,
+                promo_code_obj=promo_code,
+            )
+        subtotal = (Decimal(qty) * good.price * (Decimal("1") - discount_percent)).quantize(
+            cls.MONEY_QUANT, rounding=ROUND_HALF_UP
+        )
+        return OrderGood(
+            order=order,
+            good=good,
+            quantity=qty,
+            price_at_order=good.price,
+            discount_percent=discount_percent,
+            subtotal=subtotal,
+        )
 
-            order_goods.append(
-                OrderGood(
-                    order=order,
-                    good=good_obj,
-                    quantity=good["quantity"],
-                    price_at_order=good_obj.price,
-                )
+    @classmethod
+    def add_goods_to_order(
+        cls,
+        goods: list[Good],
+        goods_data: list[dict],
+        order: Order,
+        promo_code: PromoCode | None = None,
+    ) -> tuple[list[Any], Decimal]:
+        """
+        Добавляет позиции к заказу.
+
+        Подчитывает итоговую сумму заказа.
+        """
+        goods_dict = {g.pk: g for g in goods}
+        order_goods = []
+        total_amount = Decimal("0")
+        for item in goods_data:
+            good_obj = goods_dict[item["good_id"]]
+            order_good = cls.create_order_good(
+                good=good_obj, order=order, qty=item["quantity"], promo_code=promo_code
+            )
+            order_goods.append(order_good)
+            total_amount += order_good.subtotal
+        return order_goods, total_amount.quantize(cls.MONEY_QUANT, rounding=ROUND_HALF_UP)
+
+    @classmethod
+    @transaction.atomic
+    def create_order(cls, user_id: int, goods_data: List[Dict], code: str | None = None) -> Order:
+        """
+        Создает заказ.
+
+        Args:
+            user_id: id покупателя
+            goods_data: товары для заказа
+            code: строка промокода
+
+        Returns:
+            объект Order
+        """
+        # находим покупателя
+        user = cls._get_user(user_id)
+
+        # находим объекты товаров
+        goods = cls._get_goods(goods_data)
+
+        # валидация промокода
+        promo_code = None
+        if code:
+            promo_code = PromoCodeService.validate(
+                code=code,
+                user=user,
+                goods=goods,
             )
 
-            good_obj.quantity -= good["quantity"]
-            good_objs.append(good_obj)
+        # резервирование товаров
+        cls._goods_reserve(goods_data)
 
+        # создание объекта заказа
+        order = Order(user=user, promo_code=promo_code)
+
+        # добавляем позиции в заказ
+        order_goods, total_amount = cls.add_goods_to_order(goods, goods_data, order, promo_code)
+
+        # проставляем итоговую сумму в заказ
         order.total_amount = total_amount
 
         # сохраняем заказ
@@ -92,14 +165,8 @@ class OrderService:
         # сохраняем товары в заказе
         OrderGood.objects.bulk_create(order_goods)
 
-        # обновляем счетчик использования в промокоде
-        promo_code_obj.current_uses_count += 1
-        promo_code_obj.save(update_fields=["current_uses_count"])
-
-        # обновляем количество товаров на складе
-        Good.objects.bulk_update(good_objs, ("quantity",))
+        # обновляем счетчик использований в промокоде
+        if promo_code:
+            PromoCodeService.increment_usage(promo_code.id)
 
         return order
-
-
-order_service = OrderService()
