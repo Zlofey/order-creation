@@ -63,7 +63,9 @@ class PromoCode(TimestampModel):
         validators=[MinValueValidator(1)],
         verbose_name="Максимальное количество использований",
     )
-    current_uses_count = models.PositiveSmallIntegerField(verbose_name="Количество использований")
+    current_uses_count = models.PositiveSmallIntegerField(
+        verbose_name="Количество использований", default=0
+    )
     started_at = models.DateTimeField(verbose_name="Начало акции")
     finished_at = models.DateTimeField(verbose_name="Окончание акции")
     category = models.ForeignKey(
@@ -93,6 +95,18 @@ class Order(TimestampModel):
     goods = models.ManyToManyField(Good, through="OrderGood", verbose_name="Товары")
     promo_code = models.ForeignKey(
         PromoCode, on_delete=models.SET_NULL, null=True, verbose_name="Промокод"
+    )
+    total_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="Сумма до скидки",
+    )
+    total_discount_percent = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=Decimal("0"),
+        verbose_name="Общий процент скидки",
     )
     total_amount = models.DecimalField(
         max_digits=10,

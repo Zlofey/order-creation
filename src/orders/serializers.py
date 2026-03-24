@@ -24,8 +24,8 @@ class OrderSerializer(serializers.Serializer):
 
 
 class OrderCreateResponseLineSerializer(serializers.Serializer):
-    good_id = serializers.IntegerField(source="id")
-    quantity = serializers.IntegerField()
+    good_id = serializers.IntegerField(source="good.id")
+    quantity = serializers.IntegerField(min_value=1)
     price = serializers.DecimalField(max_digits=10, decimal_places=2, source="price_at_order")
     discount = serializers.DecimalField(max_digits=3, decimal_places=2, source="discount_percent")
     total = serializers.DecimalField(max_digits=10, decimal_places=2, source="subtotal")
@@ -35,4 +35,8 @@ class OrderCreateResponseSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     order_id = serializers.IntegerField(source="id")
     goods = OrderCreateResponseLineSerializer(many=True, source="order_goods")
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, source="total_price")
+    discount = serializers.DecimalField(
+        max_digits=3, decimal_places=2, source="total_discount_percent"
+    )
     total = serializers.DecimalField(max_digits=10, decimal_places=2, source="total_amount")

@@ -156,10 +156,26 @@ class OrderService:
         # добавляем позиции в заказ
         order_goods, total_amount = cls.add_goods_to_order(goods, goods_data, order, promo_code)
 
-        # проставляем итоговую сумму в заказ
+        # сумма заказа без скидок
+        total_price = sum(og.price_at_order * og.quantity for og in order_goods)
+
+        # итоговая скидка заказа
+        total_discount_percent = (
+            (total_price - total_amount) / total_price if total_price > 0 else Decimal("0")
+        )
+
+        # округления
+        total_price = total_price.quantize(cls.MONEY_QUANT, rounding=ROUND_HALF_UP)
+        total_discount_percent = total_discount_percent.quantize(
+            cls.MONEY_QUANT, rounding=ROUND_HALF_UP
+        )
+        total_amount = total_amount.quantize(cls.MONEY_QUANT, rounding=ROUND_HALF_UP)
+
+        # cохранение заказа с суммами
+        order.total_price = total_price
+        order.total_discount_percent = total_discount_percent
         order.total_amount = total_amount
 
-        # сохраняем заказ
         order.save()
 
         # сохраняем товары в заказе

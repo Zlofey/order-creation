@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import List
 
 from django.db.models import F
 from django.utils import timezone
@@ -57,7 +58,7 @@ class PromoCodeService:
         return any(cls.is_applicable_to_good(promo_code_obj, good) for good in goods)
 
     @classmethod
-    def validate(cls, code: str, user: User, goods: list[Good]) -> PromoCode:
+    def validate(cls, code: str, user: User, goods: List[Good]) -> PromoCode:
         """Полная валидация промокода перед применением."""
 
         # проверка на существование промокода
@@ -86,8 +87,9 @@ class PromoCodeService:
 
     @classmethod
     def calculate_discount(cls, good_obj: Good, promo_code_obj: PromoCode) -> Decimal:
+        """Рассчитывает процент скидки для конкретного товара."""
         if cls.is_applicable_to_good(promo_code_obj=promo_code_obj, good_obj=good_obj):
-            return Decimal(promo_code_obj.discount_percent)
+            return promo_code_obj.discount_percent
         return Decimal("0")
 
     @classmethod
