@@ -52,8 +52,11 @@ class PromoCode(TimestampModel):
     """
 
     code = models.CharField(max_length=32, unique=True, verbose_name="Код")
-    discount_percent = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки"
+    discount_percent = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01")), MaxValueValidator(Decimal("1"))],
+        verbose_name="Процент скидки",
     )
     max_uses_count = models.PositiveSmallIntegerField(
         default=1,
@@ -122,9 +125,18 @@ class OrderGood(TimestampModel):
         validators=[MinValueValidator(Decimal("0.01"))],
         verbose_name="Цена на момент заказа",
     )
-    promo_applied = models.BooleanField(default=False, verbose_name="Промокод применен")
-    discount_percent = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(100)], verbose_name="Процент скидки"
+    discount_percent = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))],
+        verbose_name="Процент скидки",
+        default=Decimal("0"),
+    )
+    subtotal = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+        verbose_name="Итоговая сумма",
     )
 
     class Meta:
