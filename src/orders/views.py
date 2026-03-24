@@ -2,8 +2,8 @@ from rest_framework import status
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 
-from orders.serializers import OrderSerializer
-from orders.services.orders import order_service
+from orders.serializers import OrderCreateResponseSerializer, OrderSerializer
+from orders.services.orders import OrderService
 
 
 class OrderCreateView(CreateAPIView):
@@ -17,9 +17,10 @@ class OrderCreateView(CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
-        order_service.create_order(
+        created_obj = OrderService.create_order(
             user_id=validated_data["user_id"],
-            goods=validated_data["goods"],
-            promo_code=validated_data.get("promo_code", None),
+            goods_data=validated_data["goods"],
+            code=validated_data.get("promo_code", None),
         )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        resp_data = OrderCreateResponseSerializer(created_obj).data
+        return Response(resp_data, status=status.HTTP_201_CREATED)
