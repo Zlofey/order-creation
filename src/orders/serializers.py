@@ -8,5 +8,31 @@ class GoodSerializer(serializers.Serializer):
 
 class OrderSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
-    goods = GoodSerializer(many=True)
+    goods = GoodSerializer(
+        many=True,
+        allow_empty=False,
+        error_messages={"empty": "Добавьте хотя бы один товар в заказ."},
+    )
     promo_code = serializers.CharField(max_length=32, required=False)
+
+    def validate_goods(self, value):
+        """Проверяет, что в списке товаров нет дубликатов по good_id."""
+        good_ids = [item["good_id"] for item in value]
+        if len(good_ids) != len(set(good_ids)):
+            raise serializers.ValidationError("Список товаров содержит дубликаты.")
+        return value
+
+
+class OrderCreateResponseLineSerializer(serializers.Serializer):
+    good_id = serializers.IntegerField(source="id")
+    quantity = serializers.IntegerField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2, source="price_at_order")
+    discount = serializers.DecimalField(max_digits=3, decimal_places=2, source="discount_percent")
+    total = serializers.DecimalField(max_digits=10, decimal_places=2, source="subtotal")
+
+
+class OrderCreateResponseSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    order_id = serializers.IntegerField(source="id")
+    goods = OrderCreateResponseLineSerializer(many=True, source="order_goods")
+    total = serializers.DecimalField(max_digits=10, decimal_places=2, source="total_amount")
