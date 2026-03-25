@@ -1,0 +1,21 @@
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Django
+*.log
+db.sqlite3
+media/
+staticfiles/
+
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Pre-commit
+.pre-commit-cache/
