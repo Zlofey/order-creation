@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TransactionTestCase
+from django.test import TestCase
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -10,7 +10,7 @@ from orders.models import Category, Good, Order, OrderGood, PromoCode
 from orders.services.orders import OrderService
 
 
-class OrderServiceTest(TransactionTestCase):
+class OrderServiceTest(TestCase):
     def setUp(self):
         self.user = User.objects.create(username="testuser")
         self.category = Category.objects.create(name="Electronics")
