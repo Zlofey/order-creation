@@ -20,7 +20,4 @@ docker compose up --build
 
 # Тесты
 docker compose exec web pytest src/tests/orders/services/
-
-# Сделать заказ
-POST на /orders/
 ```
